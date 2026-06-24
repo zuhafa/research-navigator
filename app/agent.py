@@ -69,6 +69,34 @@ class MentorRecommendation(BaseModel):
     recommended_prep_weeks: int = Field(description="Suggested prep time before starting.")
     reason: str = Field(description="Justification and next steps recommendation.")
 
+class ResearchReadiness(BaseModel):
+    readiness_score: int = Field(description="Readiness evaluation score between 0 and 100.")
+    skill_level: str = Field(description="Evaluated skill level (Beginner/Intermediate/Advanced).")
+    missing_skills: list[str] = Field(description="List of key missing skills identified.")
+    estimated_prep_time: str = Field(description="Estimated preparation time, e.g. 'X weeks'.")
+    reasoning: str = Field(description="Explainable reasoning and breakdown based on prerequisites and complexity.")
+
+class WeeklyLearningPath(BaseModel):
+    week_1: list[str] = Field(description="Topics/tasks to learn in week 1.")
+    week_2: list[str] = Field(description="Topics/tasks to learn in week 2.")
+    week_3: list[str] = Field(description="Topics/tasks to learn in week 3.")
+    week_4: list[str] = Field(description="Topics/tasks to learn in week 4.")
+    learning_sequence: str = Field(description="Summary of the overall personalized learning sequence.")
+
+class ResearchFeasibility(BaseModel):
+    feasibility_level: str = Field(description="Feasibility grade (Low / Medium / High).")
+    can_understand: bool = Field(description="Can this user realistically understand this paper?")
+    can_implement: bool = Field(description="Can this user realistically implement this paper?")
+    missing_skills: list[str] = Field(description="List of key missing skills required to bridge the gap.")
+    recommended_prep_path: str = Field(description="Brief recommended preparation path.")
+    reasoning: str = Field(description="Explainable feasibility reasoning in plain English.")
+
+class ResearchImpact(BaseModel):
+    real_world_applications: list[str] = Field(description="Real-world applications of this research.")
+    industry_relevance: str = Field(description="Evaluation of industry relevance (e.g. High, Medium, Low).")
+    societal_impact: str = Field(description="Societal impact and benefits.")
+    future_opportunities: list[str] = Field(description="Future opportunities or research directions.")
+
 # =====================================================================
 # Specialized Sub-Agents Definitions
 # =====================================================================
@@ -95,6 +123,26 @@ dataset_mcp = McpToolset(
 impl_mcp = McpToolset(
     connection_params=mcp_connection,
     tool_filter=["estimate_complexity"]
+)
+
+readiness_mcp = McpToolset(
+    connection_params=mcp_connection,
+    tool_filter=["get_readiness_rules"]
+)
+
+learning_path_mcp = McpToolset(
+    connection_params=mcp_connection,
+    tool_filter=["get_learning_path"]
+)
+
+feasibility_mcp = McpToolset(
+    connection_params=mcp_connection,
+    tool_filter=["get_project_templates"]
+)
+
+impact_mcp = McpToolset(
+    connection_params=mcp_connection,
+    tool_filter=["get_research_domain"]
 )
 
 paper_analyzer = LlmAgent(
@@ -152,6 +200,48 @@ Return structured JSON output matching the DatasetDetails schema.""",
     description="Identifies dataset size, access permissions, difficulty, and lists alternative public datasets."
 )
 
+research_readiness_agent = LlmAgent(
+    name="research_readiness_agent",
+    model=Gemini(model=config.model),
+    instruction="""You are the Research Readiness Agent.
+Determine whether a user is ready to understand or implement a paper (assume the user has a default skill level of Beginner).
+You must calculate a realistic readiness score (0-100), identify the user's skill level (Beginner/Intermediate/Advanced), missing skills, and estimated preparation time.
+You must call the get_readiness_rules tool to obtain official evaluation scoring metrics.
+Use explainable reasoning and do not output random scores.
+Return structured JSON output matching the ResearchReadiness schema.""",
+    output_schema=ResearchReadiness,
+    output_key="research_readiness",
+    tools=[readiness_mcp],
+    description="Evaluates user readiness score, skill level, missing skills, and estimated preparation time."
+)
+
+learning_path_agent = LlmAgent(
+    name="learning_path_agent",
+    model=Gemini(model=config.model),
+    instruction="""You are the Learning Path Agent.
+Convert the retrieved learning paths into a personalized 4-week preparation plan.
+You must call the get_learning_path tool to fetch the weekly learning path roadmap.
+Return structured JSON output matching the WeeklyLearningPath schema.""",
+    output_schema=WeeklyLearningPath,
+    output_key="learning_path_details",
+    tools=[learning_path_mcp],
+    description="Generates weekly preparation plans and personalized learning sequences."
+)
+
+research_feasibility_agent = LlmAgent(
+    name="research_feasibility_agent",
+    model=Gemini(model=config.model),
+    instruction="""You are the Research Feasibility Agent.
+Evaluate if the user can realistically understand and implement the paper.
+Determine the feasibility level (Low / Medium / High), missing skills, and recommended prep path.
+You must call the get_project_templates tool to review reference project templates.
+Return structured JSON output matching the ResearchFeasibility schema.""",
+    output_schema=ResearchFeasibility,
+    output_key="research_feasibility",
+    tools=[feasibility_mcp],
+    description="Assesses readability, implementation capability, and overall feasibility."
+)
+
 project_idea_generator = LlmAgent(
     name="project_idea_generator",
     model=Gemini(model=config.model),
@@ -164,6 +254,19 @@ Return structured JSON output matching the ProjectIdeas schema.""",
     output_schema=ProjectIdeas,
     output_key="project_ideas",
     description="Generates beginner, intermediate, and advanced practical project ideas based on the research."
+)
+
+research_impact_agent = LlmAgent(
+    name="research_impact_agent",
+    model=Gemini(model=config.model),
+    instruction="""You are the Research Impact Agent.
+Analyze why this research matters. Determine real-world applications, industry relevance, societal impact, and future opportunities.
+You must call the get_research_domain tool to get domain-specific relevance details.
+Return structured JSON output matching the ResearchImpact schema.""",
+    output_schema=ResearchImpact,
+    output_key="research_impact",
+    tools=[impact_mcp],
+    description="Generates real-world applications, industry relevance, societal impact, and future opportunities."
 )
 
 research_mentor = LlmAgent(
@@ -184,22 +287,30 @@ Return structured JSON output matching the MentorRecommendation schema.""",
 
 orchestrator_instruction = """You are the Coordinator for the Research Navigator AI.
 Your task is to analyze the research paper input, abstract, topic, or arXiv URL provided by the user.
-To perform this task, you MUST invoke all of the following specialized sub-agents:
+To perform this task, you MUST invoke all of the following specialized sub-agents in order:
 1. Call paper_analyzer to summarize the paper.
 2. Call prerequisite_analyzer to determine required knowledge.
-3. Call implementation_analyzer to check build complexity.
-4. Call dataset_analyzer to evaluate datasets.
-5. Call project_idea_generator to generate project ideas.
-6. Call research_mentor to assess suitability.
+3. Call dataset_analyzer to evaluate datasets.
+4. Call implementation_analyzer to check build complexity.
+5. Call research_readiness_agent to evaluate user readiness.
+6. Call learning_path_agent to construct the weekly learning path.
+7. Call research_feasibility_agent to check feasibility.
+8. Call project_idea_generator to generate project ideas.
+9. Call research_impact_agent to determine research impact.
+10. Call research_mentor to assess overall suitability and final next steps.
 
 After collecting all the outputs, combine them into a single comprehensive markdown report.
 Your final response MUST be a detailed, structured markdown report containing:
-- Executive Summary of the Paper
-- Prerequisite Analysis (Required skills and learning path)
-- Implementation and Tools Complexity Assessment
-- Dataset Details and Alternatives
-- Suggested Project Ideas (Beginner, Intermediate, Advanced)
-- Research Mentor Suitability Assessment & Next Steps
+- Executive Summary of the Paper (from paper_analyzer)
+- Prerequisite Analysis & Required Skills (from prerequisite_analyzer)
+- Dataset Details & Alternatives (from dataset_analyzer)
+- Implementation & Tools Complexity Assessment (from implementation_analyzer)
+- Research Readiness Evaluation (from research_readiness_agent)
+- Weekly Personalized Learning Plan (from learning_path_agent)
+- Research Feasibility Assessment (from research_feasibility_agent)
+- Suggested Project Templates & Ideas (from project_idea_generator)
+- Real-World Research Impact & Industry Relevance (from research_impact_agent)
+- Final Research Mentor Suitability Recommendation (from research_mentor)
 
 Ensure you present the findings clearly.
 Original Query: {query}
@@ -226,6 +337,10 @@ orchestrator = LlmAgent(
         AgentTool(dataset_analyzer),
         AgentTool(project_idea_generator),
         AgentTool(research_mentor),
+        AgentTool(research_readiness_agent),
+        AgentTool(learning_path_agent),
+        AgentTool(research_feasibility_agent),
+        AgentTool(research_impact_agent),
     ],
     before_tool_callback=serialize_tool_calls,
     description="The main coordinator that delegates tasks to specialist sub-agents and produces a consolidated report."
@@ -282,7 +397,27 @@ def security_checkpoint(ctx: Context, node_input: types.Content):
         clean_text = re.sub(phone_pattern, "[REDACTED_PHONE]", clean_text)
         log_audit("WARNING", "PII_REDACTION", {"emails_count": len(emails_found), "phones_count": len(phones_found)})
 
-    # 2. Prompt Injection Detection
+    # 2. Shell/System Execution Block
+    exec_patterns = [
+        r"os\.system\b",
+        r"subprocess\b",
+        r"exec\s*\(",
+        r"eval\s*\(",
+        r"rm\s+-rf\b",
+        r"\|\s*sh\b",
+        r"\|\s*bash\b",
+        r"sh\s+-c\b",
+        r"bash\s+-c\b"
+    ]
+    exec_detected = any(re.search(pat, raw_text) for pat in exec_patterns)
+    if exec_detected:
+        log_audit("CRITICAL", "SHELL_EXECUTION_ATTEMPT_DETECTED", {"query_snippet": raw_text[:100]})
+        return Event(
+            output="Execution attempt detected. Shell or system execution queries are blocked.",
+            route="fail"
+        )
+
+    # 3. Prompt Injection Detection
     injection_keywords = [
         "ignore previous instructions",
         "system prompt",
@@ -299,7 +434,7 @@ def security_checkpoint(ctx: Context, node_input: types.Content):
             route="fail"
         )
 
-    # 3. Domain-Specific Verification (Must look like academic, paper, URL or topic query)
+    # 4. Domain-Specific Verification (Must look like academic, paper, URL or topic query)
     academic_keywords = [
         "paper", "arxiv", "abstract", "study", "research", "dataset", "learning", 
         "classification", "transformer", "network", "algorithm", "model", "imaging", 
