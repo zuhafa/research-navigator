@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ResearchNavigator")
 
 # =====================================================================
-# Pydantic Schemas for Specialized Sub-Agents
+# Pydantic Schemas for Consolidated Sub-Agents
 # =====================================================================
 
 class PaperSummary(BaseModel):
@@ -39,63 +39,46 @@ class PaperSummary(BaseModel):
     results: str = Field(description="The key findings or metrics achieved.")
     limitations: str = Field(description="Any limitations or drawbacks of the research.")
 
-class Prerequisites(BaseModel):
+class PrerequisitesAndLearningPath(BaseModel):
     required_knowledge: list[str] = Field(description="List of specific prerequisite topics required.")
     estimated_learning_time_weeks: int = Field(description="Estimated weeks needed for a beginner to learn these prerequisites.")
     details: str = Field(description="Additional learning recommendations or resource suggestions.")
-
-class ImplementationDetails(BaseModel):
-    difficulty: str = Field(description="Complexity level (e.g. Easy, Intermediate, Hard).")
-    required_tools: list[str] = Field(description="Key tools, frameworks, and libraries needed.")
-    hardware: str = Field(description="Hardware suggestions (e.g. CPU, GPU recommended, TPU).")
-    build_time_weeks: int = Field(description="Estimated implementation duration in weeks.")
-
-class DatasetDetails(BaseModel):
-    name: str = Field(description="Name of the main dataset.")
-    size: str = Field(description="Approximate size or number of samples.")
-    access: str = Field(description="Access status (e.g. Public, Kaggle, Restricted).")
-    difficulty: str = Field(description="Difficulty level of dataset preprocessing/handling.")
-    alternatives: list[str] = Field(description="List of alternative datasets in the same domain.")
-
-class ProjectIdeas(BaseModel):
-    beginner: str = Field(description="Beginner project idea and brief path.")
-    intermediate: str = Field(description="Intermediate project idea and brief path.")
-    advanced: str = Field(description="Advanced project idea and brief path.")
-
-class MentorRecommendation(BaseModel):
-    user_level: str = Field(description="Evaluated user skill level (e.g. Beginner, Intermediate).")
-    suitability: str = Field(description="Recommendation grade (e.g. Recommended, Not Recommended Yet).")
-    missing_skills: list[str] = Field(description="List of key missing skills user needs to learn.")
-    recommended_prep_weeks: int = Field(description="Suggested prep time before starting.")
-    reason: str = Field(description="Justification and next steps recommendation.")
-
-class ResearchReadiness(BaseModel):
-    readiness_score: int = Field(description="Readiness evaluation score between 0 and 100.")
-    skill_level: str = Field(description="Evaluated skill level (Beginner/Intermediate/Advanced).")
-    missing_skills: list[str] = Field(description="List of key missing skills identified.")
-    estimated_prep_time: str = Field(description="Estimated preparation time, e.g. 'X weeks'.")
-    reasoning: str = Field(description="Explainable reasoning and breakdown based on prerequisites and complexity.")
-
-class WeeklyLearningPath(BaseModel):
     week_1: list[str] = Field(description="Topics/tasks to learn in week 1.")
     week_2: list[str] = Field(description="Topics/tasks to learn in week 2.")
     week_3: list[str] = Field(description="Topics/tasks to learn in week 3.")
     week_4: list[str] = Field(description="Topics/tasks to learn in week 4.")
     learning_sequence: str = Field(description="Summary of the overall personalized learning sequence.")
 
-class ResearchFeasibility(BaseModel):
-    feasibility_level: str = Field(description="Feasibility grade (Low / Medium / High).")
-    can_understand: bool = Field(description="Can this user realistically understand this paper?")
-    can_implement: bool = Field(description="Can this user realistically implement this paper?")
-    missing_skills: list[str] = Field(description="List of key missing skills required to bridge the gap.")
-    recommended_prep_path: str = Field(description="Brief recommended preparation path.")
-    reasoning: str = Field(description="Explainable feasibility reasoning in plain English.")
-
-class ResearchImpact(BaseModel):
+class ImplementationDatasetImpact(BaseModel):
+    difficulty: str = Field(description="Complexity level (e.g. Easy, Intermediate, Hard).")
+    required_tools: list[str] = Field(description="Key tools, frameworks, and libraries needed.")
+    hardware: str = Field(description="Hardware suggestions (e.g. CPU, GPU recommended, TPU).")
+    build_time_weeks: int = Field(description="Estimated implementation duration in weeks.")
+    dataset_name: str = Field(description="Name of the main dataset.")
+    dataset_size: str = Field(description="Approximate size or number of samples.")
+    dataset_access: str = Field(description="Access status (e.g. Public, Kaggle, Restricted).")
+    dataset_difficulty: str = Field(description="Difficulty level of dataset preprocessing/handling.")
+    dataset_alternatives: list[str] = Field(description="List of alternative datasets in the same domain.")
     real_world_applications: list[str] = Field(description="Real-world applications of this research.")
     industry_relevance: str = Field(description="Evaluation of industry relevance (e.g. High, Medium, Low).")
     societal_impact: str = Field(description="Societal impact and benefits.")
     future_opportunities: list[str] = Field(description="Future opportunities or research directions.")
+
+class ProjectIdeas(BaseModel):
+    beginner: str = Field(description="Beginner project idea and brief path.")
+    intermediate: str = Field(description="Intermediate project idea and brief path.")
+    advanced: str = Field(description="Advanced project idea and brief path.")
+
+class MentorshipReadinessFeasibility(BaseModel):
+    readiness_score: int = Field(description="Readiness evaluation score between 0 and 100.")
+    skill_level: str = Field(description="Evaluated skill level (Beginner/Intermediate/Advanced).")
+    feasibility_level: str = Field(description="Feasibility grade (Low / Medium / High).")
+    can_understand: bool = Field(description="Can this user realistically understand this paper?")
+    can_implement: bool = Field(description="Can this user realistically implement this paper?")
+    suitability: str = Field(description="Suitability recommendation grade (e.g. Recommended, Not Recommended Yet).")
+    missing_skills: list[str] = Field(description="List of key missing skills user needs to learn.")
+    recommended_prep_weeks: int = Field(description="Suggested prep time before starting in weeks.")
+    reasoning: str = Field(description="Explainable feasibility reasoning, justification, and final next steps recommendation.")
 
 # =====================================================================
 # Specialized Sub-Agents Definitions
@@ -157,89 +140,33 @@ Return structured JSON output matching the PaperSummary schema.""",
     description="Summarizes research objectives, methodology, datasets, results, and limitations from a research input query."
 )
 
-prerequisite_analyzer = LlmAgent(
-    name="prerequisite_analyzer",
+prerequisite_and_learning_path_analyzer = LlmAgent(
+    name="prerequisite_and_learning_path_analyzer",
     model=Gemini(model=config.model),
-    instruction="""You are a Prerequisite Analysis Agent.
+    instruction="""You are the Prerequisite and Learning Path Analyzer.
 Determine the required prerequisite knowledge (e.g. languages, math, deep learning concepts) for the paper or topic.
-Estimate the total learning time in weeks for a beginner to acquire these prerequisites.
-You must query the check_prerequisites tool to get official roadmap specifications.
-Return structured JSON output matching the Prerequisites schema.""",
-    output_schema=Prerequisites,
-    output_key="prerequisites",
-    tools=[prereq_mcp],
-    description="Determines required prerequisite knowledge, topics, and estimated learning time in weeks."
+You must fetch learning path details to generate a personalized weekly learning path (Week 1 to 4).
+You must query both the check_prerequisites tool and the get_learning_path tool.
+Return structured JSON output matching the PrerequisitesAndLearningPath schema.""",
+    output_schema=PrerequisitesAndLearningPath,
+    output_key="prerequisites_and_learning_path",
+    tools=[prereq_mcp, learning_path_mcp],
+    description="Determines required prerequisite knowledge, learning topics, and constructs a personalized weekly roadmap."
 )
 
-implementation_analyzer = LlmAgent(
-    name="implementation_analyzer",
+implementation_dataset_impact_analyzer = LlmAgent(
+    name="implementation_dataset_impact_analyzer",
     model=Gemini(model=config.model),
-    instruction="""You are an Implementation Analysis Agent.
-Evaluate the build difficulty (Easy, Intermediate, Hard) for implementing the paper's project/algorithm.
-Determine the required tools/libraries (e.g. PyTorch, NumPy) and hardware requirements (e.g. GPU, CPU).
-Estimate the development build time in weeks.
-You must query the estimate_complexity tool to get default complexity statistics.
-Return structured JSON output matching the ImplementationDetails schema.""",
-    output_schema=ImplementationDetails,
-    output_key="implementation_details",
-    tools=[impl_mcp],
-    description="Evaluates build difficulty, required libraries/tools, hardware recommendations, and build time."
-)
-
-dataset_analyzer = LlmAgent(
-    name="dataset_analyzer",
-    model=Gemini(model=config.model),
-    instruction="""You are a Dataset Analysis Agent.
-Identify the main dataset mentioned in the paper or topic, its size, accessibility (Public, Private), and access difficulty.
-Provide alternative datasets if appropriate.
-You must query the check_dataset_spec tool to check dataset specs.
-Return structured JSON output matching the DatasetDetails schema.""",
-    output_schema=DatasetDetails,
-    output_key="dataset_details",
-    tools=[dataset_mcp],
-    description="Identifies dataset size, access permissions, difficulty, and lists alternative public datasets."
-)
-
-research_readiness_agent = LlmAgent(
-    name="research_readiness_agent",
-    model=Gemini(model=config.model),
-    instruction="""You are the Research Readiness Agent.
-Determine whether a user is ready to understand or implement a paper (assume the user has a default skill level of Beginner).
-You must calculate a realistic readiness score (0-100), identify the user's skill level (Beginner/Intermediate/Advanced), missing skills, and estimated preparation time.
-You must call the get_readiness_rules tool to obtain official evaluation scoring metrics.
-Use explainable reasoning and do not output random scores.
-Return structured JSON output matching the ResearchReadiness schema.""",
-    output_schema=ResearchReadiness,
-    output_key="research_readiness",
-    tools=[readiness_mcp],
-    description="Evaluates user readiness score, skill level, missing skills, and estimated preparation time."
-)
-
-learning_path_agent = LlmAgent(
-    name="learning_path_agent",
-    model=Gemini(model=config.model),
-    instruction="""You are the Learning Path Agent.
-Convert the retrieved learning paths into a personalized 4-week preparation plan.
-You must call the get_learning_path tool to fetch the weekly learning path roadmap.
-Return structured JSON output matching the WeeklyLearningPath schema.""",
-    output_schema=WeeklyLearningPath,
-    output_key="learning_path_details",
-    tools=[learning_path_mcp],
-    description="Generates weekly preparation plans and personalized learning sequences."
-)
-
-research_feasibility_agent = LlmAgent(
-    name="research_feasibility_agent",
-    model=Gemini(model=config.model),
-    instruction="""You are the Research Feasibility Agent.
-Evaluate if the user can realistically understand and implement the paper.
-Determine the feasibility level (Low / Medium / High), missing skills, and recommended prep path.
-You must call the get_project_templates tool to review reference project templates.
-Return structured JSON output matching the ResearchFeasibility schema.""",
-    output_schema=ResearchFeasibility,
-    output_key="research_feasibility",
-    tools=[feasibility_mcp],
-    description="Assesses readability, implementation capability, and overall feasibility."
+    instruction="""You are the Implementation, Dataset, and Research Impact Analyzer.
+Evaluate the implementation difficulty (Easy, Intermediate, Hard), tools/libraries, hardware requirements, and build time.
+Identify dataset details (name, size, accessibility, difficulty, and alternatives).
+Determine real-world applications, industry relevance, societal impact, and future opportunities.
+You must query the estimate_complexity, check_dataset_spec, and get_research_domain tools to fetch detailed groundings.
+Return structured JSON output matching the ImplementationDatasetImpact schema.""",
+    output_schema=ImplementationDatasetImpact,
+    output_key="implementation_dataset_impact",
+    tools=[impl_mcp, dataset_mcp, impact_mcp],
+    description="Evaluates build difficulty, tools, hardware, dataset specifications, alternatives, and research domain impact."
 )
 
 project_idea_generator = LlmAgent(
@@ -256,29 +183,19 @@ Return structured JSON output matching the ProjectIdeas schema.""",
     description="Generates beginner, intermediate, and advanced practical project ideas based on the research."
 )
 
-research_impact_agent = LlmAgent(
-    name="research_impact_agent",
+readiness_and_feasibility_mentor = LlmAgent(
+    name="readiness_and_feasibility_mentor",
     model=Gemini(model=config.model),
-    instruction="""You are the Research Impact Agent.
-Analyze why this research matters. Determine real-world applications, industry relevance, societal impact, and future opportunities.
-You must call the get_research_domain tool to get domain-specific relevance details.
-Return structured JSON output matching the ResearchImpact schema.""",
-    output_schema=ResearchImpact,
-    output_key="research_impact",
-    tools=[impact_mcp],
-    description="Generates real-world applications, industry relevance, societal impact, and future opportunities."
-)
-
-research_mentor = LlmAgent(
-    name="research_mentor",
-    model=Gemini(model=config.model),
-    instruction="""You are the Research Mentor Agent.
-Evaluate the overall suitability of pursuing this research project based on a student's current skill level (default: Beginner).
-Identify missing skills, suggest preparation time in weeks, and recommend next actions.
-Return structured JSON output matching the MentorRecommendation schema.""",
-    output_schema=MentorRecommendation,
-    output_key="mentor_recommendation",
-    description="Performs overall feasibility assessment, identifies gaps, and gives final next-steps preparation plan."
+    instruction="""You are the Readiness, Feasibility, and Research Mentorship Agent.
+Evaluate overall user suitability (default: Beginner) to pursue this research project.
+Determine user readiness score (0-100), skill level, feasibility level (Low/Medium/High), missing skills, suggested prep time, and next actions.
+You must query get_readiness_rules and get_project_templates tools to obtain skill weightings and reference templates.
+Use explainable reasoning and do not output random scores.
+Return structured JSON output matching the MentorshipReadinessFeasibility schema.""",
+    output_schema=MentorshipReadinessFeasibility,
+    output_key="readiness_feasibility_mentorship",
+    tools=[readiness_mcp, feasibility_mcp],
+    description="Performs user readiness assessment, checks feasibility, and gives final next-steps preparation plan."
 )
 
 # =====================================================================
@@ -289,28 +206,23 @@ orchestrator_instruction = """You are the Coordinator for the Research Navigator
 Your task is to analyze the research paper input, abstract, topic, or arXiv URL provided by the user.
 To perform this task, you MUST invoke all of the following specialized sub-agents in order:
 1. Call paper_analyzer to summarize the paper.
-2. Call prerequisite_analyzer to determine required knowledge.
-3. Call dataset_analyzer to evaluate datasets.
-4. Call implementation_analyzer to check build complexity.
-5. Call research_readiness_agent to evaluate user readiness.
-6. Call learning_path_agent to construct the weekly learning path.
-7. Call research_feasibility_agent to check feasibility.
-8. Call project_idea_generator to generate project ideas.
-9. Call research_impact_agent to determine research impact.
-10. Call research_mentor to assess overall suitability and final next steps.
+2. Call prerequisite_and_learning_path_analyzer to determine prerequisites and build the learning path.
+3. Call implementation_dataset_impact_analyzer to evaluate complexity, datasets, and research impact.
+4. Call project_idea_generator to generate project ideas.
+5. Call readiness_and_feasibility_mentor to assess readiness, feasibility, and mentorship recommendations.
 
 After collecting all the outputs, combine them into a single comprehensive markdown report.
 Your final response MUST be a detailed, structured markdown report containing:
 - Executive Summary of the Paper (from paper_analyzer)
-- Prerequisite Analysis & Required Skills (from prerequisite_analyzer)
-- Dataset Details & Alternatives (from dataset_analyzer)
-- Implementation & Tools Complexity Assessment (from implementation_analyzer)
-- Research Readiness Evaluation (from research_readiness_agent)
-- Weekly Personalized Learning Plan (from learning_path_agent)
-- Research Feasibility Assessment (from research_feasibility_agent)
+- Prerequisite Analysis & Required Skills (from prerequisite_and_learning_path_analyzer)
+- Dataset Details & Alternatives (from implementation_dataset_impact_analyzer)
+- Implementation & Tools Complexity Assessment (from implementation_dataset_impact_analyzer)
+- Research Readiness Evaluation (from readiness_and_feasibility_mentor)
+- Weekly Personalized Learning Plan (from prerequisite_and_learning_path_analyzer)
+- Research Feasibility Assessment (from readiness_and_feasibility_mentor)
 - Suggested Project Templates & Ideas (from project_idea_generator)
-- Real-World Research Impact & Industry Relevance (from research_impact_agent)
-- Final Research Mentor Suitability Recommendation (from research_mentor)
+- Real-World Research Impact & Industry Relevance (from implementation_dataset_impact_analyzer)
+- Final Research Mentor Suitability Recommendation (from readiness_and_feasibility_mentor)
 
 Ensure you present the findings clearly.
 Original Query: {query}
@@ -332,15 +244,10 @@ orchestrator = LlmAgent(
     instruction=orchestrator_instruction,
     tools=[
         AgentTool(paper_analyzer),
-        AgentTool(prerequisite_analyzer),
-        AgentTool(implementation_analyzer),
-        AgentTool(dataset_analyzer),
+        AgentTool(prerequisite_and_learning_path_analyzer),
+        AgentTool(implementation_dataset_impact_analyzer),
         AgentTool(project_idea_generator),
-        AgentTool(research_mentor),
-        AgentTool(research_readiness_agent),
-        AgentTool(learning_path_agent),
-        AgentTool(research_feasibility_agent),
-        AgentTool(research_impact_agent),
+        AgentTool(readiness_and_feasibility_mentor),
     ],
     before_tool_callback=serialize_tool_calls,
     description="The main coordinator that delegates tasks to specialist sub-agents and produces a consolidated report."
