@@ -19,18 +19,16 @@ graph TD
     SecurityCheck -- pass --> Orchestrator[Coordinator Agent]
     
     Orchestrator --> PaperAgent[Paper Analyzer]
-    Orchestrator --> PrereqAgent[Prerequisite Analyzer]
-    Orchestrator --> ImplAgent[Implementation Analyzer]
-    Orchestrator --> DatasetAgent[Dataset Analyzer]
+    Orchestrator --> PrereqPathAgent[Prerequisite & Learning Path Analyzer]
+    Orchestrator --> ImplDatasetImpactAgent[Implementation, Dataset, & Research Impact Analyzer]
     Orchestrator --> ProjectAgent[Project Idea Generator]
-    Orchestrator --> MentorAgent[Research Mentor]
+    Orchestrator --> ReadinessMentorAgent[Readiness, Feasibility, & Mentorship Agent]
     
     PaperAgent --> Orchestrator
-    PrereqAgent --> Orchestrator
-    ImplAgent --> Orchestrator
-    DatasetAgent --> Orchestrator
+    PrereqPathAgent --> Orchestrator
+    ImplDatasetImpactAgent --> Orchestrator
     ProjectAgent --> Orchestrator
-    MentorAgent --> Orchestrator
+    ReadinessMentorAgent --> Orchestrator
     
     Orchestrator --> HumanReview[Human Review & Approval]
     HumanReview -- reject/feedback --> Orchestrator
@@ -39,26 +37,31 @@ graph TD
 
 ## Concepts Used
 
-1. **ADK Workflow**: Graph-based state machine containing functional nodes and routing edges defined in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py#L330-L360).
-2. **LlmAgent**: Six specialized agents (`paper_analyzer`, `prerequisite_analyzer`, `implementation_analyzer`, `dataset_analyzer`, `project_idea_generator`, `research_mentor`) configured with structured Pydantic output schemas in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py#L50-L150).
-3. **AgentTool**: Used by the `orchestrator` to delegate tasks to the six specialized sub-agents dynamically in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py#L182-L195).
-4. **MCP Server**: FastMCP server in [app/mcp_server.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/mcp_server.py) providing local tools for checking prerequisites, dataset specifications, and complexity mappings.
-5. **Security Checkpoint**: Initial node `security_checkpoint` in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py#L225-L290) implementing PII filtering, prompt injection blocks, and audit logging.
+1. **ADK Workflow**: Graph-based state machine containing functional nodes and routing edges defined in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py).
+2. **LlmAgent**: Five consolidated agents (`paper_analyzer`, `prerequisite_and_learning_path_analyzer`, `implementation_dataset_impact_analyzer`, `project_idea_generator`, `readiness_and_feasibility_mentor`) configured with structured Pydantic output schemas in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py) to reduce tool calling roundtrips.
+3. **AgentTool**: Used by the `orchestrator` to delegate tasks to the five consolidated sub-agents dynamically in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py).
+4. **MCP Server**: FastMCP server in [app/mcp_server.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/mcp_server.py) providing local tools for checking prerequisites, dataset specifications, complexity mappings, project templates, learning path weekly schedules, research domains, and readiness weights.
+5. **Security Checkpoint**: Initial node `security_checkpoint` in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py) implementing PII filtering, prompt injection blocks, shell/script injection detection, and audit logging.
 6. **Agents CLI**: Project scaffolded with `agents-cli scaffold create` and configured with `pyproject.toml` and standard development lifecycles.
 
 ## Security Design
 
 - **PII Scrubbing**: Sanitizes email and phone patterns from the query string to protect student and researcher privacy.
 - **Prompt Injection Filter**: Employs keyword blocks (`ignore previous instructions`, etc.) to intercept jailbreaks before sending prompts to the coordinator and sub-agent LLMs.
+- **System Command Guardrail**: RegEx pattern checks to intercept and block system command injection attempts, including `os.system`, `subprocess`, `exec(`, `eval(`, `rm -rf`, and shell pipeline operators (`| sh`, `| bash`).
 - **Domain-Specific Check**: Ensures queries focus on academic topics and research papers, preventing the model from acting as a general-purpose chat interface (saving token quota).
 - **Structured Audit Logging**: Outputs JSON logging for key system events (PII redactions, injection attempts, approvals) to allow centralized compliance tracking.
 
 ## MCP Server Design
 
-Exposes three targeted local tools that act as a knowledge base to back sub-agent evaluations:
+Exposes seven targeted local tools that act as a knowledge base to back sub-agent evaluations:
 - `check_prerequisites(topic)`: Returns standard learning paths for core AI domains (Transformers, CNNs, GNNs) to ground the Prerequisite Agent.
-- `check_dataset_spec(dataset_name)`: Returns size, accessibility status, and difficulty for popular datasets (BraTS, TCIA, ImageNet, CBIS-DDSM) to assist the Dataset Agent.
-- `estimate_complexity(model_type)`: Returns typical implementation timelines and necessary framework dependencies (U-Net, ResNet, ViT, GPT-2) to ground the Implementation Agent.
+- `check_dataset_spec(dataset_name)`: Returns details, size, and availability for popular and medical datasets (BraTS, TCIA, ImageNet, CBIS-DDSM, Breast MRI Dataset, BUSI, HAM10000, PlantVillage, EuroSAT, Sentinel-2, Rice Leaf Disease).
+- `estimate_complexity(model_type)`: Returns typical implementation timelines and necessary framework dependencies (U-Net, ResNet, ViT, GPT-2).
+- `get_learning_path(topic)`: Retrieves structured weekly learning plans.
+- `get_project_templates(topic)`: Fetches reference beginner/intermediate/advanced template projects.
+- `get_research_domain(topic)`: Maps the topic to domain, subfield, and real-world impact.
+- `get_readiness_rules(topic)`: Returns skill evaluation readiness weights.
 
 ## Human-in-the-Loop (HITL) Flow
 
@@ -70,10 +73,11 @@ This is critical because:
 
 ## Demo Walkthrough
 
-The walkthrough tests the three primary user scenarios:
+The walkthrough tests the four primary user scenarios:
 1. **Valid Academic Flow**: Querying `"Vision Transformers in Medical Imaging"` runs the entire pipeline, calls the MCP database, maps prerequisites, and presents a suitability rating.
 2. **PII and Prompt Injection Block**: Queries containing injection payloads or PII trigger warnings and transition directly to the `Security Alert` terminal node.
-3. **Out-of-Domain Block**: Non-academic questions (e.g., general trivia) are rejected by the security checkpoint to save LLM tokens.
+3. **Execution Guardrail Block**: Queries containing shell instructions (e.g. `rm -rf /`) are blocked immediately by the security checkpoint functional node.
+4. **Out-of-Domain Block**: Non-academic questions (e.g., general trivia) are rejected by the security checkpoint to save LLM tokens.
 
 ## Impact / Value Statement
 

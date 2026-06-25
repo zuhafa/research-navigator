@@ -12,14 +12,13 @@ As you can see on our cover banner, Research Navigator is designed to be a compl
 (show assets/architecture_diagram.png)
 Let's walk through the architecture diagram.
 First, the user inputs their query, which can be an abstract, a topic, or an arXiv URL.
-This goes straight to the Security Checkpoint node. If it detects prompt injections or out-of-domain chat queries, it triggers a warning and routes to the Security Alert terminal node to save API quota.
-If it passes, it moves to the Coordinator Agent, which orchestrates six specialized sub-agents:
+This goes straight to the Security Checkpoint node. If it detects prompt injections, shell/script execution attempts, or out-of-domain queries, it triggers a warning and routes to the Security Alert terminal node to save API quota.
+If it passes, it moves to the Coordinator Agent, which orchestrates five consolidated sub-agents sequentially to keep requests safely under the Gemini API rate limits:
 - The Paper Analyzer summarizes the core objectives and methodology.
-- The Prerequisite Analyzer maps out required knowledge and learning times.
-- The Implementation Analyzer estimates code complexity and timelines.
-- The Dataset Analyzer checks dataset sizes and looks up public alternatives.
+- The Prerequisite & Learning Path Analyzer maps out required knowledge, learning times, and weekly roadmap.
+- The Implementation, Dataset, & Research Impact Analyzer estimates code complexity, hardware, dataset specifications, and domain relevance.
 - The Project Idea Generator proposes beginner, intermediate, and advanced practical project ideas.
-- And the Research Mentor performs a feasibility assessment against the user's skill level.
+- And the Readiness, Feasibility, & Mentorship Agent performs overall readiness and suitability assessments.
 Once collected, these findings are combined into a consolidated report. We then pause at the Human Review node, where the user can approve the recommendation or provide feedback to refine it, before outputting the finalized report.
 
 [2:00 — LIVE DEMO]
@@ -28,18 +27,17 @@ Now let's switch to the local playground.
 Let's type in a research topic like: "Vision Transformers in Medical Imaging" and hit send.
 (pause)
 You can see that the workflow starts execution immediately. The security checkpoint approves the input. 
-The coordinator agent kicks off the sub-agents. 
-The Prerequisite Agent calls our local MCP database to retrieve the official learning roadmap for Transformers, highlighting that PyTorch, attention mechanisms, and linear algebra are required.
-The Dataset Agent checks TCIA and BraTS dataset specifications.
-The Implementation Agent estimates that building a Vision Transformer from scratch is Advanced, taking about 3 weeks.
-The Research Mentor reviews our skill level (which defaults to Beginner) and recommends that we start with an introductory Image Classifier project first, followed by a 6-week preparation period.
+The coordinator agent kicks off the sub-agents sequentially. 
+The Prerequisite & Learning Path Analyzer calls our local MCP database to retrieve the official learning roadmap for Transformers and the weekly path roadmap.
+The Implementation, Dataset, & Research Impact Analyzer checks medical dataset specifications (like BUSI or HAM10000) and estimates complexity.
+The Readiness, Feasibility, & Mentorship Agent reviews our skill level (which defaults to Beginner) and calculates our readiness score and overall feasibility.
 Now, the execution pauses at the Human Review node, prompting us: "Please review the generated research report. Reply 'approve' to finalize, or type your feedback to adjust."
 Let's reply "approve".
 (pause)
 And there we go! The workflow completes, outputting the finalized approved report.
 
 [3:00 — SECURITY & MCP]
-Under the hood, our security checkpoint automatically scrubs personal emails and phone numbers, checks for injection attempts, and writes structured JSON logs of every event to ensure complete auditing. Our custom MCP server exposes tools like check_prerequisites, check_dataset_spec, and estimate_complexity to ground the agents' knowledge in verified local datasets.
+Under the hood, our security checkpoint automatically scrubs personal emails and phone numbers, checks for injection attempts, blocks remote shell code execution vectors, and writes structured JSON logs of every event to ensure complete auditing. Our custom MCP server exposes seven tools including get_learning_path, get_project_templates, get_research_domain, and get_readiness_rules to ground the agents' knowledge in verified local datasets.
 
 [3:30 — IMPACT / CLOSE]
 By bridging the gap between theory and code, Research Navigator AI turns academic reading into active project-based learning. It empowers the next generation of researchers to build with confidence. Thank you.

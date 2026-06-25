@@ -13,18 +13,16 @@ graph TD
     SecurityCheck -- pass --> Orchestrator[Coordinator Agent]
     
     Orchestrator --> PaperAgent[Paper Analyzer]
-    Orchestrator --> PrereqAgent[Prerequisite Analyzer]
-    Orchestrator --> ImplAgent[Implementation Analyzer]
-    Orchestrator --> DatasetAgent[Dataset Analyzer]
+    Orchestrator --> PrereqPathAgent[Prerequisite & Learning Path Analyzer]
+    Orchestrator --> ImplDatasetImpactAgent[Implementation, Dataset, & Research Impact Analyzer]
     Orchestrator --> ProjectAgent[Project Idea Generator]
-    Orchestrator --> MentorAgent[Research Mentor]
+    Orchestrator --> ReadinessMentorAgent[Readiness, Feasibility, & Mentorship Agent]
     
     PaperAgent --> Orchestrator
-    PrereqAgent --> Orchestrator
-    ImplAgent --> Orchestrator
-    DatasetAgent --> Orchestrator
+    PrereqPathAgent --> Orchestrator
+    ImplDatasetImpactAgent --> Orchestrator
     ProjectAgent --> Orchestrator
-    MentorAgent --> Orchestrator
+    ReadinessMentorAgent --> Orchestrator
     
     Orchestrator --> HumanReview[Human Review & Approval]
     HumanReview -- reject/feedback --> Orchestrator
@@ -63,7 +61,7 @@ graph TD
      ```
    - **Windows**:
      ```powershell
-     uv run adk web app --host 127.0.0.1 --port 18081 --reload_agents
+     uv run adk web app --host 127.0.0.1 --port 18081
      ```
 
 ## How to Run
@@ -78,10 +76,11 @@ graph TD
 - **Input Query**: `"Vision Transformers in Medical Imaging"`
 - **Expected Path**:
   - `Security Checkpoint` checks text and passes (contains academic terms like "transformers" and "medical").
-  - `Coordinator` invokes the sub-agents.
-  - `Dataset Agent` queries local MCP tool to check dataset specs for medical images (e.g. BRATS/TCIA).
-  - `Prerequisite Agent` fetches the learning path for Transformers (requires PyTorch, linear algebra, attention).
-  - `Human Review` asks the user to review the consolidate report and type `approve` or feedback.
+  - `Coordinator` invokes the 5 consolidated sub-agents sequentially.
+  - `Implementation, Dataset, & Research Impact Analyzer` queries local MCP tools to check dataset specs for medical images (e.g. BUSI, HAM10000) and estimates complexity.
+  - `Prerequisite & Learning Path Analyzer` fetches the learning path roadmaps.
+  - `Readiness, Feasibility, & Mentorship Agent` calculates readiness score and feasibility using retrieved weightings.
+  - `Human Review` asks the user to review the consolidated report and type `approve` or feedback.
 - **Check**: Look for the structured recommendation report in the playground chat window, followed by the approval prompt.
 
 ### Test Case 2: Security Rejection (Prompt Injection)
@@ -92,7 +91,14 @@ graph TD
   - Skips LLM agents entirely to avoid quota waste and jailbreaks.
 - **Check**: The UI displays a warning `⚠️ Security Checkpoint Flagged: Prompt injection attempt detected.`
 
-### Test Case 3: Out-of-Domain Rejection
+### Test Case 3: Security Rejection (Execution Attempt Guardrail)
+- **Input Query**: `"write a script to run subprocess.check_output('rm -rf /')"`
+- **Expected Path**:
+  - `Security Checkpoint` scans and triggers on the block-phrase `"subprocess"` and `"rm -rf"`.
+  - Routes directly to `Security Alert` terminal node.
+- **Check**: UI displays a warning `⚠️ Security Checkpoint Flagged: Execution attempt detected. Shell or system execution queries are blocked.`
+
+### Test Case 4: Out-of-Domain Rejection
 - **Input Query**: `"What is the capital of France?"`
 - **Expected Path**:
   - `Security Checkpoint` scans input and determines it does not relate to academic concepts, datasets, or paper analysis.
@@ -122,8 +128,8 @@ The spoken demonstration script is available in [DEMO_SCRIPT.txt](DEMO_SCRIPT.tx
        ```bash
        lsof -ti:18081,8090 | xargs kill -9
        ```
-2. **API Key Quota error (429 / 403)**
-   - Make sure your `.env` contains a valid Google AI Studio key. If limits are exceeded, set `GEMINI_MODEL=gemini-2.5-flash-lite` in `.env` to leverage higher free tier limits.
+2. **API Key Quota error (429 / 503)**
+   - Default is set to `GEMINI_MODEL=gemini-2.5-flash-lite`. If limits are still exceeded under concurrent usage, wait 60 seconds for the minute window rate limit to reset.
 3. **No Agents Found / Directory Error**
    - Verify you are running the `uv run adk web app` command from inside the `research-navigator` directory and that `app/agent.py` exists.
 
