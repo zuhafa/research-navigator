@@ -16,7 +16,6 @@ from google.adk.events.request_input import RequestInput
 from google.adk.agents.context import Context
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
-from pydantic import BaseModel, Field
 
 from google.adk.tools.mcp_tool import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
@@ -29,59 +28,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ResearchNavigator")
 
 # =====================================================================
-# Pydantic Schemas for Consolidated Sub-Agents
-# =====================================================================
-
-class PaperSummary(BaseModel):
-    objective: str = Field(description="The core objective or goal of the research.")
-    methodology: str = Field(description="The methods, models, or algorithms used.")
-    dataset_name: str = Field(description="The primary dataset used in the paper.")
-    results: str = Field(description="The key findings or metrics achieved.")
-    limitations: str = Field(description="Any limitations or drawbacks of the research.")
-
-class PrerequisitesAndLearningPath(BaseModel):
-    required_knowledge: list[str] = Field(description="List of specific prerequisite topics required.")
-    estimated_learning_time_weeks: int = Field(description="Estimated weeks needed for a beginner to learn these prerequisites.")
-    details: str = Field(description="Additional learning recommendations or resource suggestions.")
-    week_1: list[str] = Field(description="Topics/tasks to learn in week 1.")
-    week_2: list[str] = Field(description="Topics/tasks to learn in week 2.")
-    week_3: list[str] = Field(description="Topics/tasks to learn in week 3.")
-    week_4: list[str] = Field(description="Topics/tasks to learn in week 4.")
-    learning_sequence: str = Field(description="Summary of the overall personalized learning sequence.")
-
-class ImplementationDatasetImpact(BaseModel):
-    difficulty: str = Field(description="Complexity level (e.g. Easy, Intermediate, Hard).")
-    required_tools: list[str] = Field(description="Key tools, frameworks, and libraries needed.")
-    hardware: str = Field(description="Hardware suggestions (e.g. CPU, GPU recommended, TPU).")
-    build_time_weeks: int = Field(description="Estimated implementation duration in weeks.")
-    dataset_name: str = Field(description="Name of the main dataset.")
-    dataset_size: str = Field(description="Approximate size or number of samples.")
-    dataset_access: str = Field(description="Access status (e.g. Public, Kaggle, Restricted).")
-    dataset_difficulty: str = Field(description="Difficulty level of dataset preprocessing/handling.")
-    dataset_alternatives: list[str] = Field(description="List of alternative datasets in the same domain.")
-    real_world_applications: list[str] = Field(description="Real-world applications of this research.")
-    industry_relevance: str = Field(description="Evaluation of industry relevance (e.g. High, Medium, Low).")
-    societal_impact: str = Field(description="Societal impact and benefits.")
-    future_opportunities: list[str] = Field(description="Future opportunities or research directions.")
-
-class ProjectIdeas(BaseModel):
-    beginner: str = Field(description="Beginner project idea and brief path.")
-    intermediate: str = Field(description="Intermediate project idea and brief path.")
-    advanced: str = Field(description="Advanced project idea and brief path.")
-
-class MentorshipReadinessFeasibility(BaseModel):
-    readiness_score: int = Field(description="Readiness evaluation score between 0 and 100.")
-    skill_level: str = Field(description="Evaluated skill level (Beginner/Intermediate/Advanced).")
-    feasibility_level: str = Field(description="Feasibility grade (Low / Medium / High).")
-    can_understand: bool = Field(description="Can this user realistically understand this paper?")
-    can_implement: bool = Field(description="Can this user realistically implement this paper?")
-    suitability: str = Field(description="Suitability recommendation grade (e.g. Recommended, Not Recommended Yet).")
-    missing_skills: list[str] = Field(description="List of key missing skills user needs to learn.")
-    recommended_prep_weeks: int = Field(description="Suggested prep time before starting in weeks.")
-    reasoning: str = Field(description="Explainable feasibility reasoning, justification, and final next steps recommendation.")
-
-# =====================================================================
-# Specialized Sub-Agents Definitions
+# Local MCP Toolsets Definition
 # =====================================================================
 
 # Create connection params to the local MCP server
@@ -92,7 +39,7 @@ mcp_connection = StdioConnectionParams(
     )
 )
 
-# Create Toolsets for the agents
+# Create Toolsets for direct coordinator grounding
 prereq_mcp = McpToolset(
     connection_params=mcp_connection,
     tool_filter=["check_prerequisites"]
@@ -128,129 +75,53 @@ impact_mcp = McpToolset(
     tool_filter=["get_research_domain"]
 )
 
-paper_analyzer = LlmAgent(
-    name="paper_analyzer",
-    model=Gemini(model=config.model),
-    instruction="""You are a Research Paper Analysis Agent.
-Analyze the user's research input (a paper name, abstract, URL, or topic).
-Summarize the research objectives, methodology, main dataset used, results, and limitations.
-Return structured JSON output matching the PaperSummary schema.""",
-    output_schema=PaperSummary,
-    output_key="paper_summary",
-    description="Summarizes research objectives, methodology, datasets, results, and limitations from a research input query."
-)
-
-prerequisite_and_learning_path_analyzer = LlmAgent(
-    name="prerequisite_and_learning_path_analyzer",
-    model=Gemini(model=config.model),
-    instruction="""You are the Prerequisite and Learning Path Analyzer.
-Determine the required prerequisite knowledge (e.g. languages, math, deep learning concepts) for the paper or topic.
-You must fetch learning path details to generate a personalized weekly learning path (Week 1 to 4).
-You must query both the check_prerequisites tool and the get_learning_path tool.
-Return structured JSON output matching the PrerequisitesAndLearningPath schema.""",
-    output_schema=PrerequisitesAndLearningPath,
-    output_key="prerequisites_and_learning_path",
-    tools=[prereq_mcp, learning_path_mcp],
-    description="Determines required prerequisite knowledge, learning topics, and constructs a personalized weekly roadmap."
-)
-
-implementation_dataset_impact_analyzer = LlmAgent(
-    name="implementation_dataset_impact_analyzer",
-    model=Gemini(model=config.model),
-    instruction="""You are the Implementation, Dataset, and Research Impact Analyzer.
-Evaluate the implementation difficulty (Easy, Intermediate, Hard), tools/libraries, hardware requirements, and build time.
-Identify dataset details (name, size, accessibility, difficulty, and alternatives).
-Determine real-world applications, industry relevance, societal impact, and future opportunities.
-You must query the estimate_complexity, check_dataset_spec, and get_research_domain tools to fetch detailed groundings.
-Return structured JSON output matching the ImplementationDatasetImpact schema.""",
-    output_schema=ImplementationDatasetImpact,
-    output_key="implementation_dataset_impact",
-    tools=[impl_mcp, dataset_mcp, impact_mcp],
-    description="Evaluates build difficulty, tools, hardware, dataset specifications, alternatives, and research domain impact."
-)
-
-project_idea_generator = LlmAgent(
-    name="project_idea_generator",
-    model=Gemini(model=config.model),
-    instruction="""You are a Project Idea Agent.
-Propose three project ideas based on the research paper or topic:
-- Beginner level project
-- Intermediate level project
-- Advanced level project
-Return structured JSON output matching the ProjectIdeas schema.""",
-    output_schema=ProjectIdeas,
-    output_key="project_ideas",
-    description="Generates beginner, intermediate, and advanced practical project ideas based on the research."
-)
-
-readiness_and_feasibility_mentor = LlmAgent(
-    name="readiness_and_feasibility_mentor",
-    model=Gemini(model=config.model),
-    instruction="""You are the Readiness, Feasibility, and Research Mentorship Agent.
-Evaluate overall user suitability (default: Beginner) to pursue this research project.
-Determine user readiness score (0-100), skill level, feasibility level (Low/Medium/High), missing skills, suggested prep time, and next actions.
-You must query get_readiness_rules and get_project_templates tools to obtain skill weightings and reference templates.
-Use explainable reasoning and do not output random scores.
-Return structured JSON output matching the MentorshipReadinessFeasibility schema.""",
-    output_schema=MentorshipReadinessFeasibility,
-    output_key="readiness_feasibility_mentorship",
-    tools=[readiness_mcp, feasibility_mcp],
-    description="Performs user readiness assessment, checks feasibility, and gives final next-steps preparation plan."
-)
-
 # =====================================================================
 # Coordinator Agent Definition
 # =====================================================================
 
-orchestrator_instruction = """You are the Coordinator for the Research Navigator AI.
+orchestrator_instruction = """You are the Research Mentor Coordinator for the Research Navigator AI.
 Your task is to analyze the research paper input, abstract, topic, or arXiv URL provided by the user.
-To perform this task, you MUST invoke all of the following specialized sub-agents in order:
-1. Call paper_analyzer to summarize the paper.
-2. Call prerequisite_and_learning_path_analyzer to determine prerequisites and build the learning path.
-3. Call implementation_dataset_impact_analyzer to evaluate complexity, datasets, and research impact.
-4. Call project_idea_generator to generate project ideas.
-5. Call readiness_and_feasibility_mentor to assess readiness, feasibility, and mentorship recommendations.
 
-After collecting all the outputs, combine them into a single comprehensive markdown report.
-Your final response MUST be a detailed, structured markdown report containing:
-- Executive Summary of the Paper (from paper_analyzer)
-- Prerequisite Analysis & Required Skills (from prerequisite_and_learning_path_analyzer)
-- Dataset Details & Alternatives (from implementation_dataset_impact_analyzer)
-- Implementation & Tools Complexity Assessment (from implementation_dataset_impact_analyzer)
-- Research Readiness Evaluation (from readiness_and_feasibility_mentor)
-- Weekly Personalized Learning Plan (from prerequisite_and_learning_path_analyzer)
-- Research Feasibility Assessment (from readiness_and_feasibility_mentor)
-- Suggested Project Templates & Ideas (from project_idea_generator)
-- Real-World Research Impact & Industry Relevance (from implementation_dataset_impact_analyzer)
-- Final Research Mentor Suitability Recommendation (from readiness_and_feasibility_mentor)
+To perform this analysis, you must query all of the following local MCP tools to retrieve grounded roadmap context:
+1. Call get_research_domain with the topic to classify domain, subfield, difficulty, and relevance.
+2. Call check_prerequisites to determine the prerequisite knowledge required.
+3. Call get_learning_path to obtain a structured weekly roadmap.
+4. Call estimate_complexity to assess library dependencies and implementation time.
+5. Call check_dataset_spec to query data specs, size, accessibility, and alternatives.
+6. Call get_readiness_rules to retrieve readiness skill evaluation weights.
+7. Call get_project_templates to get reference template project ideas.
+
+After fetching the grounded data from these local tools, analyze it and generate a single comprehensive, structured markdown mentorship report.
+Your response MUST contain the following 10 sections:
+- **Executive Summary**: Core objectives, methodology, key findings, and limitations.
+- **Prerequisite Analysis**: Specific prerequisite topics and skills required.
+- **Dataset Details & Alternatives**: Specifications, sizes, accessibility, and alternative public options.
+- **Complexity Assessment**: Build difficulty, libraries, hardware recommendations, and estimated weeks.
+- **Research Readiness Score**: Calculate a readiness score (0-100) using retrieved weightings. Explain your calculation.
+- **Weekly Learning Plan**: Personalized Week 1 to 4 preparation schedule.
+- **Research Feasibility**: Determine suitability level (Low/Medium/High) and justify in plain English.
+- **Suggested Projects**: Beginner, intermediate, and advanced practical project templates.
+- **Research Impact**: Real-world applications, industry relevance, and societal benefits.
+- **Mentor Suitability Recommendation**: Evaluated user level, suitability grade, missing skills, recommended prep time, and next actions.
 
 Ensure you present the findings clearly.
 Original Query: {query}
 Feedback from User (if any): {feedback}"""
-
-# Global lock to serialize sub-agent execution
-tool_lock = asyncio.Lock()
-
-async def serialize_tool_calls(tool: Any, args: dict, tool_context: ToolContext) -> None:
-    """Forces parallel tool calls to run sequentially to avoid 503/429 rate limit spikes on Gemini API."""
-    async with tool_lock:
-        logger.info(f"Lock acquired. Space out API execution: running {tool.name}")
-        await asyncio.sleep(12.5)  # 12.5s delay to space out API calls and stay under 5 RPM free tier limit
-        return None
 
 orchestrator = LlmAgent(
     name="orchestrator",
     model=Gemini(model=config.model),
     instruction=orchestrator_instruction,
     tools=[
-        AgentTool(paper_analyzer),
-        AgentTool(prerequisite_and_learning_path_analyzer),
-        AgentTool(implementation_dataset_impact_analyzer),
-        AgentTool(project_idea_generator),
-        AgentTool(readiness_and_feasibility_mentor),
+        prereq_mcp,
+        dataset_mcp,
+        impl_mcp,
+        readiness_mcp,
+        learning_path_mcp,
+        feasibility_mcp,
+        impact_mcp,
     ],
-    before_tool_callback=serialize_tool_calls,
-    description="The main coordinator that delegates tasks to specialist sub-agents and produces a consolidated report."
+    description="The main research mentor that queries local MCP tools and synthesizes a comprehensive report in a single turn."
 )
 
 # =====================================================================

@@ -10,7 +10,7 @@ Research Navigator AI solves this by coordinating specialized agents to evaluate
 
 ## Solution Architecture
 
-Research Navigator AI uses an ADK 2.0 graph workflow:
+Research Navigator AI has been optimized into a **Single-Agent Coordinator System** that directly interfaces with the local MCP server database tools:
 
 ```mermaid
 graph TD
@@ -18,17 +18,13 @@ graph TD
     SecurityCheck -- fail --> Alert[Security Alert]
     SecurityCheck -- pass --> Orchestrator[Coordinator Agent]
     
-    Orchestrator --> PaperAgent[Paper Analyzer]
-    Orchestrator --> PrereqPathAgent[Prerequisite & Learning Path Analyzer]
-    Orchestrator --> ImplDatasetImpactAgent[Implementation, Dataset, & Research Impact Analyzer]
-    Orchestrator --> ProjectAgent[Project Idea Generator]
-    Orchestrator --> ReadinessMentorAgent[Readiness, Feasibility, & Mentorship Agent]
-    
-    PaperAgent --> Orchestrator
-    PrereqPathAgent --> Orchestrator
-    ImplDatasetImpactAgent --> Orchestrator
-    ProjectAgent --> Orchestrator
-    ReadinessMentorAgent --> Orchestrator
+    Orchestrator -- local stdio --> Prereq[check_prerequisites]
+    Orchestrator -- local stdio --> LearnPath[get_learning_path]
+    Orchestrator -- local stdio --> Dataset[check_dataset_spec]
+    Orchestrator -- local stdio --> Complex[estimate_complexity]
+    Orchestrator -- local stdio --> Domain[get_research_domain]
+    Orchestrator -- local stdio --> Rules[get_readiness_rules]
+    Orchestrator -- local stdio --> Templates[get_project_templates]
     
     Orchestrator --> HumanReview[Human Review & Approval]
     HumanReview -- reject/feedback --> Orchestrator
@@ -38,11 +34,10 @@ graph TD
 ## Concepts Used
 
 1. **ADK Workflow**: Graph-based state machine containing functional nodes and routing edges defined in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py).
-2. **LlmAgent**: Five consolidated agents (`paper_analyzer`, `prerequisite_and_learning_path_analyzer`, `implementation_dataset_impact_analyzer`, `project_idea_generator`, `readiness_and_feasibility_mentor`) configured with structured Pydantic output schemas in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py) to reduce tool calling roundtrips.
-3. **AgentTool**: Used by the `orchestrator` to delegate tasks to the five consolidated sub-agents dynamically in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py).
-4. **MCP Server**: FastMCP server in [app/mcp_server.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/mcp_server.py) providing local tools for checking prerequisites, dataset specifications, complexity mappings, project templates, learning path weekly schedules, research domains, and readiness weights.
-5. **Security Checkpoint**: Initial node `security_checkpoint` in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py) implementing PII filtering, prompt injection blocks, shell/script injection detection, and audit logging.
-6. **Agents CLI**: Project scaffolded with `agents-cli scaffold create` and configured with `pyproject.toml` and standard development lifecycles.
+2. **Single-Agent Coordinator**: The main `orchestrator` agent directly queries the 7 local MCP toolsets, performing all analysis and synthesis in a single Gemini LLM call. This completely avoids rate-limiting (429) and backend overloads (503) from sequential nested LLM loops.
+3. **MCP Server**: FastMCP server in [app/mcp_server.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/mcp_server.py) providing local tools for checking prerequisites, dataset specifications, complexity mappings, project templates, learning path weekly schedules, research domains, and readiness weights.
+4. **Security Checkpoint**: Initial node `security_checkpoint` in [app/agent.py](file:///c:/Users/HP/Downloads/AI%20agents/adk-workspace/research-navigator/app/agent.py) implementing PII filtering, prompt injection blocks, shell/script injection detection, and audit logging.
+5. **Agents CLI**: Project scaffolded with `agents-cli scaffold create` and configured with `pyproject.toml` and standard development lifecycles.
 
 ## Security Design
 

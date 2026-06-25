@@ -4,7 +4,7 @@ Research Navigator AI is an intelligent research mentor built using the Google A
 
 ## System Architecture
 
-The following diagram illustrates the multi-agent workflow:
+The following diagram illustrates the single-agent coordinator workflow grounded via local MCP database tools:
 
 ```mermaid
 graph TD
@@ -12,17 +12,13 @@ graph TD
     SecurityCheck -- fail --> Alert[Security Alert]
     SecurityCheck -- pass --> Orchestrator[Coordinator Agent]
     
-    Orchestrator --> PaperAgent[Paper Analyzer]
-    Orchestrator --> PrereqPathAgent[Prerequisite & Learning Path Analyzer]
-    Orchestrator --> ImplDatasetImpactAgent[Implementation, Dataset, & Research Impact Analyzer]
-    Orchestrator --> ProjectAgent[Project Idea Generator]
-    Orchestrator --> ReadinessMentorAgent[Readiness, Feasibility, & Mentorship Agent]
-    
-    PaperAgent --> Orchestrator
-    PrereqPathAgent --> Orchestrator
-    ImplDatasetImpactAgent --> Orchestrator
-    ProjectAgent --> Orchestrator
-    ReadinessMentorAgent --> Orchestrator
+    Orchestrator -- local stdio --> Prereq[check_prerequisites]
+    Orchestrator -- local stdio --> LearnPath[get_learning_path]
+    Orchestrator -- local stdio --> Dataset[check_dataset_spec]
+    Orchestrator -- local stdio --> Complex[estimate_complexity]
+    Orchestrator -- local stdio --> Domain[get_research_domain]
+    Orchestrator -- local stdio --> Rules[get_readiness_rules]
+    Orchestrator -- local stdio --> Templates[get_project_templates]
     
     Orchestrator --> HumanReview[Human Review & Approval]
     HumanReview -- reject/feedback --> Orchestrator
@@ -75,11 +71,9 @@ graph TD
 ### Test Case 1: Standard Academic Input (Valid Flow)
 - **Input Query**: `"Vision Transformers in Medical Imaging"`
 - **Expected Path**:
-  - `Security Checkpoint` checks text and passes (contains academic terms like "transformers" and "medical").
-  - `Coordinator` invokes the 5 consolidated sub-agents sequentially.
-  - `Implementation, Dataset, & Research Impact Analyzer` queries local MCP tools to check dataset specs for medical images (e.g. BUSI, HAM10000) and estimates complexity.
-  - `Prerequisite & Learning Path Analyzer` fetches the learning path roadmaps.
-  - `Readiness, Feasibility, & Mentorship Agent` calculates readiness score and feasibility using retrieved weightings.
+  - `Security Checkpoint` checks text and passes.
+  - `Coordinator` queries all 7 local MCP tools concurrently to gather domain, prerequisites, learning path, dataset, complexity, readiness rules, and templates.
+  - The Coordinator compiles the information and generates the structured 10-section report in a single LLM request.
   - `Human Review` asks the user to review the consolidated report and type `approve` or feedback.
 - **Check**: Look for the structured recommendation report in the playground chat window, followed by the approval prompt.
 
