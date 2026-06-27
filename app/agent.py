@@ -136,9 +136,11 @@ orchestrator = LlmAgent(
 # Helper and Node Functions
 # =====================================================================
 
-def extract_text(content: types.Content) -> str:
-    """Helper to safely extract text from types.Content object."""
-    if not content or not content.parts:
+def extract_text(content: Any) -> str:
+    """Helper to safely extract text from types.Content or string."""
+    if isinstance(content, str):
+        return content
+    if not content or not hasattr(content, "parts") or not content.parts:
         return ""
     return "".join(part.text for part in content.parts if part.text)
 
@@ -261,7 +263,7 @@ def security_alert(node_input: str):
     )
     yield Event(output={"error": node_input})
 
-async def human_review(ctx: Context, node_input: types.Content):
+async def human_review(ctx: Context, node_input: Any):
     """Waits for human in the loop input before completing the workflow."""
     report_text = extract_text(node_input)
     
