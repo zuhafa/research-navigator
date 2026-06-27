@@ -110,7 +110,15 @@ Feedback from User (if any): {feedback}"""
 
 orchestrator = LlmAgent(
     name="orchestrator",
-    model=Gemini(model=config.model),
+    model=Gemini(
+        model=config.model,
+        retry_options=types.HttpRetryOptions(
+            attempts=6,
+            initial_delay=2.0,
+            max_delay=8.0,
+            http_status_codes=[429, 503, 504]
+        )
+    ),
     instruction=orchestrator_instruction,
     tools=[
         prereq_mcp,
