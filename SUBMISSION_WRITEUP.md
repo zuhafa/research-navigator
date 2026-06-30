@@ -13,25 +13,57 @@ Research Navigator AI solves this by coordinating specialized agents to evaluate
 Research Navigator AI has been optimized into a **Single-Agent Coordinator System** that directly interfaces with the local MCP server database tools, wrapped in a high-fidelity React SaaS client:
 
 ```mermaid
-graph TD
-    START --> SecurityCheck[Security Checkpoint]
-    SecurityCheck -- fail --> Alert[Security Alert]
-    SecurityCheck -- pass --> Orchestrator[Coordinator Agent]
+graph TB
+    subgraph Frontend [React SPA Client - Port 18081]
+        LP[Landing Page]
+        WS[AI Workspace]
+        DB[Analysis Dashboard]
+        RM[Learning Roadmap]
+        RP[NotebookLM Report]
+    end
+
+    subgraph Backend [FastAPI Bridge & ADK Engine]
+        API[API Endpoints & SSE Stream]
+        SC[Security Checkpoint]
+        Alert[Security Alert]
+        COORD[Coordinator Agent]
+        HR[Human Review Node]
+        FR[Final Report Node]
+    end
+
+    subgraph KnowledgeBase [MCP Grounding Layer]
+        MCP[FastMCP Server]
+        SQL[SQLite Session DB]
+    end
+
+    %% Flow connections
+    LP -->|Start Session| WS
+    WS -->|POST /run_sse| API
+    API -->|run_async| SC
     
-    Orchestrator -- local stdio --> Prereq[check_prerequisites]
-    Orchestrator -- local stdio --> LearnPath[get_learning_path]
-    Orchestrator -- local stdio --> Dataset[check_dataset_spec]
-    Orchestrator -- local stdio --> Complex[estimate_complexity]
-    Orchestrator -- local stdio --> Domain[get_research_domain]
-    Orchestrator -- local stdio --> Rules[get_readiness_rules]
-    Orchestrator -- local stdio --> Templates[get_project_templates]
+    SC -->|fail| Alert
+    SC -->|pass| COORD
     
-    Orchestrator --> HumanReview[Human Review & Approval]
-    HumanReview -- reject/feedback --> Orchestrator
-    HumanReview -- approve --> FinalReport[Final Report Node]
+    COORD -->|query tools| MCP
+    COORD -->|yield RequestInput| HR
     
+    HR -->|user feedback| COORD
+    HR -->|user approval| FR
+    FR -->|finalize| API
+    
+    API -->|SSE stream| WS
+    WS -->|parse report| DB
+    WS -->|parse roadmap| RM
+    WS -->|parse raw markdown| RP
+    
+    COORD -->|append event| SQL
+
     classDef ui fill:#7C3AED,stroke:#fff,stroke-width:2px,color:#fff;
-    class START,Orchestrator,HumanReview ui;
+    classDef server fill:#141B34,stroke:#7C3AED,stroke-width:2px,color:#fff;
+    classDef db fill:#00D4FF,stroke:#fff,stroke-width:1px,color:#0B1020;
+    class LP,WS,DB,RM,RP ui;
+    class API,SC,Alert,COORD,HR,FR server;
+    class MCP,SQL db;
 ```
 
 ### Premium UI/UX Frontend Upgrade
