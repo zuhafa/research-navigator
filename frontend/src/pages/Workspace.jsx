@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Send, Bot, User, CheckCircle2, Loader2, Play, AlertTriangle, 
-  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap 
+  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseReport } from '../utils/reportParser';
@@ -15,6 +15,7 @@ export default function Workspace() {
   const [messages, setMessages] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState('');
   const [activeInvocationId, setActiveInvocationId] = useState('');
+  const [savedSessions, setSavedSessions] = useState([]);
   
   // Timeline/status tracking states
   const [timeline, setTimeline] = useState([
@@ -39,9 +40,41 @@ export default function Workspace() {
     'Explain Self-Supervised Learning in Speech Recognition'
   ];
 
+  // Load saved sessions on mount
+  useEffect(() => {
+    const loaded = localStorage.getItem('navigator_sessions');
+    if (loaded) {
+      setSavedSessions(JSON.parse(loaded));
+    }
+  }, []);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, timeline]);
+
+  // Helper to save session to localStorage history
+  const saveSessionToHistory = (sessionId, firstQuery, updatedMessages, reportText) => {
+    const loaded = localStorage.getItem('navigator_sessions');
+    let list = loaded ? JSON.parse(loaded) : [];
+    
+    const index = list.findIndex(s => s.id === sessionId);
+    const sessionObj = {
+      id: sessionId,
+      query: firstQuery,
+      messages: updatedMessages,
+      report: reportText,
+      timestamp: new Date().toISOString()
+    };
+    
+    if (index > -1) {
+      list[index] = sessionObj;
+    } else {
+      list.unshift(sessionObj);
+    }
+    
+    localStorage.setItem('navigator_sessions', JSON.stringify(list));
+    setSavedSessions(list);
+  };
 
   // Initializing new session
   const createNewSession = async () => {
@@ -55,7 +88,6 @@ export default function Workspace() {
       return data.id;
     } catch (e) {
       console.error('Failed to create session:', e);
-      // Fallback local UUID
       const fallbackId = 'session-' + Math.random().toString(36).substr(2, 9);
       setActiveSessionId(fallbackId);
       return fallbackId;
@@ -74,7 +106,9 @@ export default function Workspace() {
     setQuery('');
     setLoading(true);
     setHumanReviewPaused(false);
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    setMessages(newMessages);
     
     // Reset timeline
     setTimeline(prev => prev.map(t => ({ ...t, status: 'idle' })));
@@ -84,8 +118,11 @@ export default function Workspace() {
       sessionId = await createNewSession();
     }
 
+    // Save initial session state
+    const titleQuery = messages.length === 0 ? userMessage : (savedSessions.find(s => s.id === sessionId)?.query || userMessage);
+    saveSessionToHistory(sessionId, titleQuery, newMessages, pendingReport);
+
     try {
-      // API call to run agent SSE
       const response = await fetch('http://localhost:18081/run_sse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,7 +153,7 @@ export default function Workspace() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n\n');
-        buffer = lines.pop(); // Keep last incomplete block
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -134,7 +171,6 @@ export default function Workspace() {
               if (event.node_name === 'orchestrator') {
                 const calls = event.get_function_calls || [];
                 
-                // Set active states
                 if (calls.includes('get_research_domain')) {
                   updateTimeline('domain', 'active');
                 }
@@ -160,7 +196,6 @@ export default function Workspace() {
                 }
               }
 
-              // Extract text parts
               if (event.content && event.content.parts) {
                 const textPart = event.content.parts.find(p => p.text);
                 if (textPart) {
@@ -168,35 +203,35 @@ export default function Workspace() {
                 }
               }
 
-              // Check if human review is reached
               if (event.node_name === 'human_review' && event.get_function_calls?.includes('adk_request_input')) {
                 setHumanReviewPaused(true);
-                // Mark all timeline steps as complete
                 setTimeline(prev => prev.map(t => ({ ...t, status: 'done' })));
               }
-            } catch (err) {
-              // Ignore parse errors from partial JSON fragments
-            }
+            } catch (err) {}
           }
         }
       }
 
       setLoading(false);
       
-      // Store report locally
       if (currentText) {
         setPendingReport(currentText);
         const parsed = parseReport(currentText);
         localStorage.setItem('current_report', JSON.stringify(parsed));
+        
+        // Save final report inside list history
+        saveSessionToHistory(sessionId, titleQuery, [...newMessages, { role: 'model', content: 'Report generated successfully. You can review the sections now.' }], currentText);
       }
 
     } catch (err) {
       console.error(err);
       setLoading(false);
-      setMessages(prev => [...prev, { 
+      const errMessages = [...newMessages, { 
         role: 'model', 
         content: '⚠️ Failed to connect to local ADK backend server. Please verify the backend uvicorn server is running on port 18081.' 
-      }]);
+      }];
+      setMessages(errMessages);
+      saveSessionToHistory(sessionId, titleQuery, errMessages, pendingReport);
     }
   };
 
@@ -205,7 +240,6 @@ export default function Workspace() {
       if (item.id === id) {
         return { ...item, status };
       }
-      // If we mark an item as active or done, we ensure preceding items are marked done
       return item;
     }));
   };
@@ -214,7 +248,7 @@ export default function Workspace() {
   const handleApprove = async () => {
     setSubmittingFeedback(true);
     try {
-      const response = await fetch('http://localhost:18081/run_sse', {
+      await fetch('http://localhost:18081/run_sse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,12 +270,15 @@ export default function Workspace() {
         })
       });
 
-      // Finish session
       setHumanReviewPaused(false);
-      setMessages(prev => [...prev, { 
+      const approveMessages = [...messages, { 
         role: 'model', 
         content: '🎉 **Mentorship Report Finalized & Approved!** You can now explore the structured roadmap and dashboard analytics.' 
-      }]);
+      }];
+      setMessages(approveMessages);
+      
+      const title = savedSessions.find(s => s.id === activeSessionId)?.query || "Mentorship Session";
+      saveSessionToHistory(activeSessionId, title, approveMessages, pendingReport);
     } catch (e) {
       console.error(e);
     }
@@ -280,26 +317,35 @@ export default function Workspace() {
       });
 
       setHumanReviewPaused(false);
-      setLoading(true);
       setMessages(prev => [...prev, { role: 'user', content: `Adjust report: ${userFeedback}` }]);
       
-      // We start reading the updated stream
-      // Normally we would listen to the reader loop again, but for this demonstration, we'll wait for the new run
-      // Let's trigger a dummy read or handle it.
-      setLoading(false);
-      setMessages(prev => [...prev, { role: 'model', content: 'Report updated successfully.' }]);
+      // Update history
+      const title = savedSessions.find(s => s.id === activeSessionId)?.query || "Mentorship Session";
+      saveSessionToHistory(activeSessionId, title, [...messages, { role: 'user', content: `Adjust report: ${userFeedback}` }], pendingReport);
     } catch (e) {
       console.error(e);
-      setLoading(false);
     }
     setSubmittingFeedback(false);
+  };
+
+  // Load an existing session from sidebar
+  const loadSavedSession = (session) => {
+    setActiveSessionId(session.id);
+    setMessages(session.messages || []);
+    setPendingReport(session.report || '');
+    setHumanReviewPaused(false);
+    
+    if (session.report) {
+      const parsed = parseReport(session.report);
+      localStorage.setItem('current_report', JSON.stringify(parsed));
+    }
   };
 
   return (
     <div className="flex h-screen bg-bg text-primaryText overflow-hidden">
       {/* Sidebar */}
       <div className="w-80 bg-bgSecondary border-r border-borderColor flex flex-col justify-between p-6">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 overflow-hidden">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primaryAccent to-secondaryAccent flex items-center justify-center">
               <Bot className="w-5 h-5 text-white" />
@@ -308,8 +354,8 @@ export default function Workspace() {
           </div>
 
           <button
-            onClick={() => {
-              createNewSession();
+            onClick={async () => {
+              await createNewSession();
               setMessages([]);
               setTimeline(prev => prev.map(t => ({ ...t, status: 'idle' })));
               setHumanReviewPaused(false);
@@ -319,9 +365,30 @@ export default function Workspace() {
           >
             + New Mentorship Chat
           </button>
+
+          {/* Saved Sessions list */}
+          <div className="flex flex-col gap-2 overflow-y-auto mt-2 max-h-[45vh] border-b border-borderColor/40 pb-4">
+            <div className="text-xs font-semibold text-secondaryText uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5" />
+              Recent Sessions
+            </div>
+            {savedSessions.length === 0 ? (
+              <div className="text-xs text-secondaryText italic pl-2">No past sessions saved</div>
+            ) : (
+              savedSessions.map((s, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => loadSavedSession(s)}
+                  className={`w-full py-2.5 px-3 rounded-xl text-left text-xs truncate transition border ${activeSessionId === s.id ? 'bg-primaryAccent/10 border-primaryAccent/30 text-white font-medium' : 'border-transparent text-secondaryText hover:bg-white/5 hover:text-white'}`}
+                >
+                  {s.query}
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 mt-4">
           <div className="text-xs font-semibold text-secondaryText uppercase tracking-wider">Navigation</div>
           <button 
             disabled={!pendingReport}

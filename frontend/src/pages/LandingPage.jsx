@@ -31,12 +31,6 @@ export default function LandingPage() {
             Research Navigator AI
           </span>
         </div>
-        <button 
-          onClick={() => navigate('/workspace')}
-          className="px-5 py-2.5 rounded-xl bg-white/5 border border-borderColor hover:bg-white/10 transition text-sm font-medium"
-        >
-          Enter Workspace
-        </button>
       </header>
 
       {/* Hero Section */}
@@ -94,11 +88,9 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-borderColor/50 py-8 z-10">
         <div className="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center text-sm text-secondaryText gap-4">
-          <div>© 2026 Research Navigator AI. Built under Agents for Good.</div>
+          <div>© 2026 Research Navigator AI. All rights reserved.</div>
           <div className="flex gap-6">
-            <a href="https://github.com" target="_blank" className="hover:text-white transition">GitHub</a>
-            <a href="#" className="hover:text-white transition">Documentation</a>
-            <a href="#" className="hover:text-white transition">About</a>
+            <span className="text-secondaryText">@ Research Navigator AI</span>
           </div>
         </div>
       </footer>
