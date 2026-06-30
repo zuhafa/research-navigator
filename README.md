@@ -50,20 +50,26 @@ graph TD
    make install
    ```
 
-4. Launch the local web playground:
-   - **macOS/Linux**:
+4. Build the React frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
+5. Launch the local premium web playground:
+   - **macOS/Linux/Windows**:
      ```bash
      make playground
      ```
-   - **Windows**:
-     ```powershell
-     uv run adk web app --host 127.0.0.1 --port 18081
-     ```
+     This starts the premium UI bridge server at **http://localhost:18081**.
 
 ## How to Run
 
-- **Playground UI**: `make playground` (runs the interactive testing UI at http://localhost:18081).
-- **Production API Server**: `make run` (starts the FastAPI backend).
+- **Premium SaaS UI**: `make playground` (starts the premium React client + FastAPI bridge at http://localhost:18081).
+- **Vite Frontend Dev Server**: `cd frontend && npm run dev` (starts hot-reloading dev server at http://localhost:5173).
+- **Production API Server**: `make run` (starts the raw FastAPI backend).
 - **Run Tests**: `make test` (executes unit tests).
 
 ## Sample Test Cases
