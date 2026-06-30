@@ -36,7 +36,7 @@ graph TD
 
 ### Premium UI/UX Frontend Upgrade
 
-The platform features a modern, production-ready React client and a custom FastAPI bridge:
+The platform features a modern, deployment-ready React client and a custom FastAPI bridge:
 1. **Landing Page**: Modern landing page with custom colors, blur gradients, and visual highlights.
 2. **AI Workspace (SaaS Client)**: Real-time status tracker (e.g. `✓ Reading Paper`, `⟳ Estimating Complexity`) indicating node execution, combined with a chat window and inline Human Review checkpoints.
 3. **Analysis Dashboard**: Six responsive expandable glassmorphic cards deconstructing research topics into Executive Summary, Prerequisites, Dataset Spec, Complexity, Suggested Projects, and Readiness analytics.
