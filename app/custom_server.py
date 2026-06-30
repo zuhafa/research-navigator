@@ -132,11 +132,23 @@ async def run_agent_sse(req: RunAgentRequest):
 
     return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
 
-# Serve React static assets
+# Serve React static assets with HTML5 History API fallback
+from fastapi.responses import FileResponse
+
 frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
+    # Mount assets directory for JS/CSS files
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    
+    # Catch-all route to serve index.html for all other routes (for React Router)
+    @app.get("/{fallback_path:path}")
+    async def spa_fallback(fallback_path: str):
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Frontend build missing index.html")
 else:
     @app.get("/")
     def read_root():
         return {"status": "Backend running. Please build the frontend (npm run build) to serve it here."}
+

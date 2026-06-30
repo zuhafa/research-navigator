@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Send, Bot, User, CheckCircle2, Loader2, Play, AlertTriangle, 
-  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks 
+  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseReport } from '../utils/reportParser';
