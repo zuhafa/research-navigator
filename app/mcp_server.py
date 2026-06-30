@@ -48,7 +48,14 @@ def check_dataset_spec(dataset_name: str) -> str:
     for k in datasets:
         if k in key:
             return datasets[k]
-    return f"Dataset: {dataset_name}. Access: Check Kaggle or official academic homepage. Difficulty: General preprocessing required."
+    return (
+        f"Dataset: {dataset_name}. This dataset is not pre-registered in our local database. "
+        f"However, you can typically find it or public alternatives by searching on: "
+        f"1. Hugging Face Datasets (https://huggingface.co/datasets), "
+        f"2. Kaggle Datasets (https://www.kaggle.com/datasets) searching for '{dataset_name}', "
+        f"3. Papers With Code (https://paperswithcode.com/datasets) to see active benchmarking code. "
+        f"Difficulty: Varies (general preprocessing, data loaders, and scaling recommended)."
+    )
 
 @mcp.tool()
 def estimate_complexity(model_type: str) -> str:

@@ -97,7 +97,7 @@ Your response MUST contain the following 10 sections:
 - **Prerequisite Analysis**: Specific prerequisite topics and skills required.
 - **Dataset Details & Alternatives**: Specifications, sizes, accessibility, and alternative public options.
 - **Complexity Assessment**: Build difficulty, libraries, hardware recommendations, and estimated weeks.
-- **Research Readiness Score**: Calculate a readiness score (0-100) using retrieved weightings. Explain your calculation.
+- **Research Readiness Score**: Calculate a readiness score (0-100) using retrieved weightings. Base this score on the student's background/experience level if they provided it in their query. If they did NOT specify their background (e.g. 'I am a beginner in Python', 'I have PyTorch experience'), calculate the score assuming a baseline beginner profile and append a note asking them to reply with their experience level to get a tailored score.
 - **Weekly Learning Plan**: Personalized Week 1 to 4 preparation schedule.
 - **Research Feasibility**: Determine suitability level (Low/Medium/High) and justify in plain English.
 - **Suggested Projects**: Beginner, intermediate, and advanced practical project templates.
