@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Send, Bot, User, CheckCircle2, Loader2, Play, AlertTriangle, 
+import {
+  Send, Bot, User, CheckCircle2, Loader2, Play, AlertTriangle,
   ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap, History, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,7 +16,7 @@ export default function Workspace() {
   const [activeSessionId, setActiveSessionId] = useState('');
   const [activeInvocationId, setActiveInvocationId] = useState('');
   const [savedSessions, setSavedSessions] = useState([]);
-  
+
   // Timeline/status tracking states
   const [timeline, setTimeline] = useState([
     { id: 'domain', label: 'Reading Paper & Domain Classifying', status: 'idle' }, // idle, active, done
@@ -56,7 +56,7 @@ export default function Workspace() {
   const saveSessionToHistory = (sessionId, firstQuery, updatedMessages, reportText) => {
     const loaded = localStorage.getItem('navigator_sessions');
     let list = loaded ? JSON.parse(loaded) : [];
-    
+
     const index = list.findIndex(s => s.id === sessionId);
     const sessionObj = {
       id: sessionId,
@@ -65,13 +65,13 @@ export default function Workspace() {
       report: reportText,
       timestamp: new Date().toISOString()
     };
-    
+
     if (index > -1) {
       list[index] = sessionObj;
     } else {
       list.unshift(sessionObj);
     }
-    
+
     localStorage.setItem('navigator_sessions', JSON.stringify(list));
     setSavedSessions(list);
   };
@@ -106,10 +106,10 @@ export default function Workspace() {
     setQuery('');
     setLoading(true);
     setHumanReviewPaused(false);
-    
+
     const newMessages = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
-    
+
     // Reset timeline
     setTimeline(prev => prev.map(t => ({ ...t, status: 'idle' })));
 
@@ -162,7 +162,7 @@ export default function Workspace() {
 
             try {
               const event = JSON.parse(dataStr);
-              
+
               if (event.invocation_id) {
                 setActiveInvocationId(event.invocation_id);
               }
@@ -170,7 +170,7 @@ export default function Workspace() {
               // Update timeline status based on node execution / tool calls
               if (event.node_name === 'orchestrator') {
                 const calls = event.get_function_calls || [];
-                
+
                 if (calls.includes('get_research_domain')) {
                   updateTimeline('domain', 'active');
                 }
@@ -207,18 +207,18 @@ export default function Workspace() {
                 setHumanReviewPaused(true);
                 setTimeline(prev => prev.map(t => ({ ...t, status: 'done' })));
               }
-            } catch (err) {}
+            } catch (err) { }
           }
         }
       }
 
       setLoading(false);
-      
+
       if (currentText) {
         setPendingReport(currentText);
         const parsed = parseReport(currentText);
         localStorage.setItem('current_report', JSON.stringify(parsed));
-        
+
         // Save final report inside list history
         saveSessionToHistory(sessionId, titleQuery, [...newMessages, { role: 'model', content: 'Report generated successfully. You can review the sections now.' }], currentText);
       }
@@ -226,9 +226,9 @@ export default function Workspace() {
     } catch (err) {
       console.error(err);
       setLoading(false);
-      const errMessages = [...newMessages, { 
-        role: 'model', 
-        content: '⚠️ Failed to connect to local ADK backend server. Please verify the backend uvicorn server is running on port 18081.' 
+      const errMessages = [...newMessages, {
+        role: 'model',
+        content: '⚠️ Failed to connect to local ADK backend server. Please verify the backend uvicorn server is running on port 18081.'
       }];
       setMessages(errMessages);
       saveSessionToHistory(sessionId, titleQuery, errMessages, pendingReport);
@@ -271,12 +271,12 @@ export default function Workspace() {
       });
 
       setHumanReviewPaused(false);
-      const approveMessages = [...messages, { 
-        role: 'model', 
-        content: '🎉 **Mentorship Report Finalized & Approved!** You can now explore the structured roadmap and dashboard analytics.' 
+      const approveMessages = [...messages, {
+        role: 'model',
+        content: '🎉 **Mentorship Report Finalized & Approved!** You can now explore the structured roadmap and dashboard analytics.'
       }];
       setMessages(approveMessages);
-      
+
       const title = savedSessions.find(s => s.id === activeSessionId)?.query || "Mentorship Session";
       saveSessionToHistory(activeSessionId, title, approveMessages, pendingReport);
     } catch (e) {
@@ -318,7 +318,7 @@ export default function Workspace() {
 
       setHumanReviewPaused(false);
       setMessages(prev => [...prev, { role: 'user', content: `Adjust report: ${userFeedback}` }]);
-      
+
       // Update history
       const title = savedSessions.find(s => s.id === activeSessionId)?.query || "Mentorship Session";
       saveSessionToHistory(activeSessionId, title, [...messages, { role: 'user', content: `Adjust report: ${userFeedback}` }], pendingReport);
@@ -334,7 +334,7 @@ export default function Workspace() {
     setMessages(session.messages || []);
     setPendingReport(session.report || '');
     setHumanReviewPaused(false);
-    
+
     if (session.report) {
       const parsed = parseReport(session.report);
       localStorage.setItem('current_report', JSON.stringify(parsed));
@@ -349,7 +349,7 @@ export default function Workspace() {
       list = list.filter(s => s.id !== sessionId);
       localStorage.setItem('navigator_sessions', JSON.stringify(list));
       setSavedSessions(list);
-      
+
       if (activeSessionId === sessionId) {
         setActiveSessionId('');
         setMessages([]);
@@ -395,7 +395,7 @@ export default function Workspace() {
               <div className="text-xs text-secondaryText italic pl-2">No past sessions saved</div>
             ) : (
               savedSessions.map((s, idx) => (
-                <div 
+                <div
                   key={idx}
                   className={`w-full flex items-center justify-between rounded-xl border p-1 transition group ${activeSessionId === s.id ? 'bg-primaryAccent/10 border-primaryAccent/30' : 'border-transparent hover:bg-white/5'}`}
                 >
@@ -420,7 +420,7 @@ export default function Workspace() {
 
         <div className="flex flex-col gap-4 mt-4">
           <div className="text-xs font-semibold text-secondaryText uppercase tracking-wider">Navigation</div>
-          <button 
+          <button
             disabled={!pendingReport}
             onClick={() => navigate('/dashboard')}
             className={`w-full py-2.5 px-4 rounded-xl text-left text-sm font-medium flex items-center gap-2 transition ${pendingReport ? 'hover:bg-white/5 text-primaryText' : 'opacity-50 cursor-not-allowed text-secondaryText'}`}
@@ -428,7 +428,7 @@ export default function Workspace() {
             <ListChecks className="w-4 h-4 text-primaryAccent" />
             Analysis Dashboard
           </button>
-          <button 
+          <button
             disabled={!pendingReport}
             onClick={() => navigate('/roadmap')}
             className={`w-full py-2.5 px-4 rounded-xl text-left text-sm font-medium flex items-center gap-2 transition ${pendingReport ? 'hover:bg-white/5 text-primaryText' : 'opacity-50 cursor-not-allowed text-secondaryText'}`}
@@ -436,7 +436,7 @@ export default function Workspace() {
             <GraduationCap className="w-4 h-4 text-secondaryAccent" />
             Learning Roadmap
           </button>
-          <button 
+          <button
             disabled={!pendingReport}
             onClick={() => navigate('/report')}
             className={`w-full py-2.5 px-4 rounded-xl text-left text-sm font-medium flex items-center gap-2 transition ${pendingReport ? 'hover:bg-white/5 text-primaryText' : 'opacity-50 cursor-not-allowed text-secondaryText'}`}
@@ -548,7 +548,7 @@ export default function Workspace() {
               </form>
             </div>
           )}
-          
+
           {/* Approved final links */}
           {pendingReport && !humanReviewPaused && !loading && (
             <div className="p-6 rounded-2xl bg-success/5 border border-success/20 max-w-md flex flex-col gap-4">
@@ -560,13 +560,13 @@ export default function Workspace() {
                 The parsed learning roadmaps, dataset specs, and beginner projects are ready for you. Use the links below to view the interactive sections.
               </p>
               <div className="flex flex-wrap gap-2">
-                <button 
+                <button
                   onClick={() => navigate('/dashboard')}
                   className="px-4 py-2 text-xs font-semibold rounded-xl bg-primaryAccent hover:opacity-90 transition text-white"
                 >
                   View Dashboard
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/roadmap')}
                   className="px-4 py-2 text-xs font-semibold rounded-xl bg-secondaryAccent hover:opacity-90 transition text-bg font-bold"
                 >
