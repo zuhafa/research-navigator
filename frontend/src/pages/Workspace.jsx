@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Send, Bot, User, CheckCircle2, Loader2, Play, AlertTriangle, 
-  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap, History
+  ArrowRight, ShieldCheck, HelpCircle, Check, ListChecks, GraduationCap, History, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseReport } from '../utils/reportParser';
@@ -341,6 +341,25 @@ export default function Workspace() {
     }
   };
 
+  const deleteSession = (e, sessionId) => {
+    e.stopPropagation();
+    const loaded = localStorage.getItem('navigator_sessions');
+    if (loaded) {
+      let list = JSON.parse(loaded);
+      list = list.filter(s => s.id !== sessionId);
+      localStorage.setItem('navigator_sessions', JSON.stringify(list));
+      setSavedSessions(list);
+      
+      if (activeSessionId === sessionId) {
+        setActiveSessionId('');
+        setMessages([]);
+        setPendingReport('');
+        localStorage.removeItem('current_report');
+      }
+    }
+  };
+
+
   return (
     <div className="flex h-screen bg-bg text-primaryText overflow-hidden">
       {/* Sidebar */}
@@ -376,13 +395,24 @@ export default function Workspace() {
               <div className="text-xs text-secondaryText italic pl-2">No past sessions saved</div>
             ) : (
               savedSessions.map((s, idx) => (
-                <button
+                <div 
                   key={idx}
-                  onClick={() => loadSavedSession(s)}
-                  className={`w-full py-2.5 px-3 rounded-xl text-left text-xs truncate transition border ${activeSessionId === s.id ? 'bg-primaryAccent/10 border-primaryAccent/30 text-white font-medium' : 'border-transparent text-secondaryText hover:bg-white/5 hover:text-white'}`}
+                  className={`w-full flex items-center justify-between rounded-xl border p-1 transition group ${activeSessionId === s.id ? 'bg-primaryAccent/10 border-primaryAccent/30' : 'border-transparent hover:bg-white/5'}`}
                 >
-                  {s.query}
-                </button>
+                  <button
+                    onClick={() => loadSavedSession(s)}
+                    className={`flex-grow py-1.5 px-2 text-left text-xs truncate transition font-medium ${activeSessionId === s.id ? 'text-white' : 'text-secondaryText hover:text-white'}`}
+                  >
+                    {s.query}
+                  </button>
+                  <button
+                    onClick={(e) => deleteSession(e, s.id)}
+                    className="p-1.5 rounded-lg hover:bg-danger/20 text-secondaryText hover:text-danger opacity-0 group-hover:opacity-100 transition shrink-0 mr-1"
+                    title="Delete session"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))
             )}
           </div>
