@@ -1,28 +1,26 @@
-[0:00 — HOOK]
-Hello everyone. Reading and implementing academic research papers can be extremely daunting for students and beginners. They often get stuck on complex terminology, struggle to identify what prerequisites they need to study first, and have difficulty estimating the implementation complexity of models.
+[0:00 — HOOK & PROBLEM STATEMENT]
+Hello everyone. Reading and implementing academic research papers can be extremely daunting for students, junior developers, and early-career researchers. When approaching a new paper, they get stuck on complex mathematical equations and academic terminology. They struggle to identify the exact prerequisites they need to study first, have difficulty discovering accessible datasets, and cannot estimate the real-world engineering complexity of building the models.
 
-[0:20 — SOLUTION OVERVIEW]
-That is why we built Research Navigator AI. It acts as an intelligent research mentor. Rather than just summarizing a paper, it helps students evaluate if they are ready to build it, maps out concrete learning paths, identifies datasets, and proposes multi-level project ideas.
+[0:30 — RESEARCH NAVIGATOR AI OVERVIEW]
+That is why we built Research Navigator AI. It acts as an intelligent research mentor that turns passive paper reading into active project-based learning. Rather than just summarizing text, it dynamically evaluates the user's readiness level, maps out a concrete weekly learning path, queries dataset availability, and suggests personalized beginner, intermediate, and advanced practical projects.
 
-[0:40 — SOLUTION ARCHITECTURE]
+[1:00 — SYSTEM ARCHITECTURE WALKTHROUGH]
 (Show assets/architecture_diagram.png)
-Let's walk through our optimized single-agent coordinator workflow. 
-First, the user inputs their query (an abstract, topic, or arXiv URL), which passes through our Security Checkpoint node to filter out prompt injections, shell/script execution attempts, and out-of-domain queries.
-If it passes, it moves to the Coordinator Agent. The Coordinator interfaces directly with 7 local MCP database tools (such as check_prerequisites, estimate_complexity, and get_learning_path). Since these tools execute locally, the Coordinator fetches all grounded context instantly and compiles the complete 10-section mentoring report in a single LLM request, avoiding API rate limits.
-The workflow then pauses at the Human Review node, where the user can approve the recommendation or provide feedback to refine it, before outputting the finalized report.
+Let's walk through our system architecture. The user interacts with our React frontend. The query is received by the custom FastAPI bridge, which routes the execution through the ADK workflow graph.
+First, the Security Checkpoint node sanitizes inputs, scrubbing PII and checking Regex filters to immediately block prompt injections, jailbreaks, and shell/script execution attempts (like rm -rf or subprocess calls) without wasting LLM tokens. 
+If it passes, the Coordinator Agent takes over. To solve the strict API rate limits and 503 overloads typical of nested agent roundtrips, our Coordinator is grounded directly via 7 local FastMCP database tools. It queries prerequisites, datasets, complexity, and roadmaps concurrently, generating a comprehensive 10-section report in a single, fast LLM turn.
+The workflow then enters a Human Review Node where the execution suspends, prompting the user for approval or adjustment feedback before completing.
 
-[1:40 — LIVE WORKSPACE & HISTORY]
+[2:00 — LIVE DEMO & INTERACTIVE DASHBOARD]
 (Switch to localhost:18081/workspace)
-Now let's switch to our premium React workspace. I will click "Start Mentorship Session".
-Let's select an example topic: "Vision Transformers in Medical Imaging".
-As it runs, you can see a live status timeline loader tracking active agent execution states. 
-Our workspace features a ChatGPT-style sidebar where all runs are persistently saved under "Recent Sessions". Users can switch between past sessions instantly, loading conversations and parsed reports on the fly.
+Now let's switch to the live application. In the AI Workspace, I will click "Start Mentorship Session". Let's run a query: "Vision Transformers in Medical Imaging".
+As it runs, the live status timeline loader tracks active agent execution. In under 10 seconds, the report is compiled!
+Because the user's sessions are persistently saved in our ChatGPT-style "Recent Sessions" sidebar, users can reload past conversations and reports instantly.
+Let's click "Approve" to finalize the report.
+(Navigate to Dashboard, Roadmap, and Report views)
+Once approved, the React client automatically parses the markdown report into interactive tabs:
+- The Analysis Dashboard deconstructs the research into six expandable cards showing summaries, datasets, and a custom readiness score based on user experience.
+- The Learning Roadmap renders an interactive weekly timeline with progress tracking checkboxes.
+- The Mentorship Report displays a clean NotebookLM-style report ready to share.
 
-[2:15 — INTERACTIVE DASHBOARD & ROADMAP]
-(Show Dashboard, Roadmap, and Report views)
-Once approved, the report is dynamically parsed into three dedicated client views:
-1. The Analysis Dashboard, which breaks down prerequisites, datasets, and readiness scores using responsive expandable cards.
-2. The Learning Roadmap, displaying weekly timelines with checklists to track study progress.
-3. The Mentorship Report, which renders a high-fidelity NotebookLM-style report ready for copying and sharing.
-
-Research Navigator AI turns passive paper reading into active project-based learning. Thank you!
+Research Navigator AI lower the barriers to AI research. Thank you!
